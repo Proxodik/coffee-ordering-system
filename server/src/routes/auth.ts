@@ -82,18 +82,9 @@ router.post("/login", requireTrustedOrigin, async (req, res) => {
 });
 
 // Вихід адміністратора із системи
-router.post("/logout", requireTrustedOrigin, (req, res) => {
-  // Перевірка походження запиту для захисту операції виходу
-  const origin = req.get("Origin");
-
-  if (origin !== "http://localhost:5000") {
-    res.status(403).json({
-      message: "Invalid request origin",
-    });
-    return;
-  }
-
-  // Видалення cookie з тими самими параметрами шляху
+// Вихід адміністратора із системи
+router.post("/logout", requireTrustedOrigin, (_req, res) => {
+  // Видалення cookie авторизації
   res.clearCookie("admin_token", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

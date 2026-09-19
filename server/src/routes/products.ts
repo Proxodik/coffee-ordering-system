@@ -21,6 +21,21 @@ router.get("/", async (_req, res) => {
   }
 });
 
+// Отримання всіх товарів для адміністратора, включно з прихованими
+router.get("/admin", requireAdmin, async (_req, res) => {
+  try {
+    const products = await Product.find().sort({ createdAt: -1 });
+
+    res.json(products);
+  } catch (error) {
+    console.error("Failed to fetch admin products:", error);
+
+    res.status(500).json({
+      message: "Failed to fetch products",
+    });
+  }
+});
+
 // Створення нового товару адміністратором
 router.post("/", requireTrustedOrigin, requireAdmin, async (req, res) => {
   try {
