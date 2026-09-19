@@ -9,7 +9,7 @@ const router = Router();
 
 router.post("/", async (req, res) => {
   try {
-    const { customerName, customerPhone, pickupTime, items } = req.body;
+    const { customerName, customerPhone, pickupTime, items } = req.body ?? {};
 
     // Перевірка даних клієнта
     if (
@@ -18,7 +18,8 @@ router.post("/", async (req, res) => {
       typeof customerPhone !== "string" ||
       !customerPhone.trim() ||
       !Array.isArray(items) ||
-      items.length === 0
+      items.length === 0 ||
+      items.length > 50
     ) {
       return res.status(400).json({
         message: "Invalid order data",

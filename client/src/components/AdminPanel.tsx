@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import ProductsPanel from "./ProductsPanel";
 
 interface OrderItem {
@@ -26,6 +26,7 @@ export default function AdminPanel() {
   const [password, setPassword] = useState("");
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [activeTab, setActiveTab] = useState<"orders" | "products">("orders");
 
   const [loginLoading, setLoginLoading] = useState(false);
@@ -53,6 +54,41 @@ export default function AdminPanel() {
       timeStyle: "short",
     }).format(new Date(value));
   }
+
+  // Перевірка чинної сесії адміністратора після відкриття сторінки
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function checkSession() {
+      try {
+        const response = await fetch("/api/orders", {
+          credentials: "same-origin",
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data: Order[] = await response.json();
+
+        if (controller.signal.aborted) return;
+
+        setOrders(data);
+        setIsLoggedIn(true);
+      } catch {
+        // Якщо перевірка не вдалася, залишається доступною форма входу.
+      } finally {
+        if (!controller.signal.aborted) {
+          setCheckingSession(false);
+        }
+      }
+    }
+
+    void checkSession();
+
+    return () => controller.abort();
+  }, []);
 
   // Завантаження замовлень
   async function loadOrders() {
@@ -208,6 +244,22 @@ export default function AdminPanel() {
     }
   }
 
+  if (checkingSession) {
+    return (
+      <section className="admin-page container">
+        <p>Перевірка сесії адміністратора...</p>
+      </section>
+    );
+  }
+
+  // Повернення до форми входу після завершення сесії
+  function handleSessionExpired() {
+    setIsLoggedIn(false);
+    setOrders([]);
+    setPassword("");
+    setActiveTab("orders");
+    setLoginError("Сеанс завершився. Увійдіть повторно.");
+  }
   // Сторінка авторизації
   if (!isLoggedIn) {
     return (
@@ -286,7 +338,7 @@ export default function AdminPanel() {
           </p>
         )}
 
-        <ProductsPanel />
+        <ProductsPanel onSessionExpired={handleSessionExpired} />
       </section>
     );
   }
@@ -333,7 +385,7 @@ export default function AdminPanel() {
 
       {ordersLoading && <p>Завантаження замовлень...</p>}
 
-      {!ordersLoading && orders.length === 0 && (
+      {!ordersLoading && !ordersError && orders.length === 0 && (
         <div className="admin-empty">
           <p>Замовлень поки немає.</p>
         </div>

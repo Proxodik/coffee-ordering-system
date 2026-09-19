@@ -28,7 +28,13 @@ const emptyForm: ProductForm = {
   isAvailable: true,
 };
 
-export default function ProductsPanel() {
+interface ProductsPanelProps {
+  onSessionExpired: () => void;
+}
+
+export default function ProductsPanel({
+  onSessionExpired,
+}: ProductsPanelProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [form, setForm] = useState<ProductForm>({ ...emptyForm });
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -58,6 +64,7 @@ export default function ProductsPanel() {
       });
 
       if (response.status === 401) {
+        onSessionExpired();
         throw new Error("Сеанс завершився. Увійдіть повторно.");
       }
 
@@ -162,6 +169,7 @@ export default function ProductsPanel() {
       });
 
       if (response.status === 401) {
+        onSessionExpired();
         throw new Error("Сеанс завершився. Увійдіть повторно.");
       }
 
@@ -209,6 +217,7 @@ export default function ProductsPanel() {
       });
 
       if (response.status === 401) {
+        onSessionExpired();
         throw new Error("Сеанс завершився. Увійдіть повторно.");
       }
 

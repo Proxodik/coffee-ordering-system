@@ -82,7 +82,6 @@ router.post("/login", requireTrustedOrigin, async (req, res) => {
 });
 
 // Вихід адміністратора із системи
-// Вихід адміністратора із системи
 router.post("/logout", requireTrustedOrigin, (_req, res) => {
   // Видалення cookie авторизації
   res.clearCookie("admin_token", {
