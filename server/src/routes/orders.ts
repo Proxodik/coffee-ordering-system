@@ -4,6 +4,7 @@ import { Product } from "../models/Product";
 import { Order } from "../models/Order";
 import { requireAdmin } from "../middleware/requireAdmin";
 import { requireTrustedOrigin } from "../middleware/requireTrustedOrigin";
+import { calculateOrderTotal } from "../utils/calculateOrderTotal";
 
 const router = Router();
 
@@ -101,10 +102,7 @@ router.post("/", async (req, res) => {
       quantity: quantities.get(product._id.toString())!,
     }));
 
-    const totalPrice = orderItems.reduce(
-      (total, item) => total + item.price * item.quantity,
-      0,
-    );
+    const totalPrice = calculateOrderTotal(orderItems);
 
     // Перевірка узгодженої з покупцем вартості замовлення
     if (Math.round(totalPrice * 100) !== Math.round(expectedTotal * 100)) {
