@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import ProductsPanel from "./ProductsPanel";
 
 interface OrderItem {
@@ -38,6 +38,14 @@ export default function AdminPanel() {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState("");
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  // Повернення до форми входу після завершення сесії
+  const handleSessionExpired = useCallback(() => {
+    setIsLoggedIn(false);
+    setOrders([]);
+    setPassword("");
+    setActiveTab("orders");
+    setLoginError("Сеанс завершився. Увійдіть повторно.");
+  }, []);
 
   // Форматування ціни у гривнях
   function formatPrice(price: number) {
@@ -252,14 +260,6 @@ export default function AdminPanel() {
     );
   }
 
-  // Повернення до форми входу після завершення сесії
-  function handleSessionExpired() {
-    setIsLoggedIn(false);
-    setOrders([]);
-    setPassword("");
-    setActiveTab("orders");
-    setLoginError("Сеанс завершився. Увійдіть повторно.");
-  }
   // Сторінка авторизації
   if (!isLoggedIn) {
     return (

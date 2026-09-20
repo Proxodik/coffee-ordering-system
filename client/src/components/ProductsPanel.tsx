@@ -81,9 +81,48 @@ export default function ProductsPanel({
     }
   }
 
+  // Початкове завантаження товарів під час відкриття панелі
   useEffect(() => {
-    void loadProducts();
-  }, []);
+    const controller = new AbortController();
+
+    async function loadInitialProducts() {
+      try {
+        const response = await fetch("/api/products/admin", {
+          credentials: "same-origin",
+          signal: controller.signal,
+        });
+
+        if (controller.signal.aborted) return;
+
+        if (response.status === 401) {
+          onSessionExpired();
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error("Не вдалося завантажити товари.");
+        }
+
+        const data: Product[] = await response.json();
+
+        if (!controller.signal.aborted) {
+          setProducts(data);
+        }
+      } catch (err) {
+        if (controller.signal.aborted) return;
+
+        setError(err instanceof Error ? err.message : "Помилка завантаження.");
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadInitialProducts();
+
+    return () => controller.abort();
+  }, [onSessionExpired]);
 
   // Оновлення значень форми
   function updateForm<K extends keyof ProductForm>(

@@ -2,20 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import "./App.css";
 import AdminPanel from "./components/AdminPanel";
 
-interface Product {
-  _id: string;
-  name: string;
-  description: string;
-  price: number;
-  imageUrl: string;
-  category: string;
-  isAvailable: boolean;
-}
-
-interface CartItem {
-  product: Product;
-  quantity: number;
-}
+import { synchronizeCart, type Product, type CartItem } from "./cart";
 
 function App() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -189,32 +176,14 @@ function App() {
       // Оновлення меню відповідно до даних сервера
       setProducts(actualProducts);
 
-      const actualProductsMap = new Map(
-        actualProducts.map((product) => [product._id, product]),
-      );
+      // Перевірка змін у кошику
+      const { updatedCart, hasUnavailableItems, hasPriceChanges } =
+        synchronizeCart(cart, actualProducts);
 
-      const unavailableItems = cart.filter(
-        (item) => !actualProductsMap.has(item.product._id),
-      );
+      if (hasUnavailableItems || hasPriceChanges) {
+        setCart(updatedCart);
 
-      const priceChanged = cart.some((item) => {
-        const actualProduct = actualProductsMap.get(item.product._id);
-
-        return actualProduct && actualProduct.price !== item.product.price;
-      });
-
-      // Оновлення цін і видалення недоступних товарів із кошика
-      if (unavailableItems.length > 0 || priceChanged) {
-        setCart(
-          cart
-            .filter((item) => actualProductsMap.has(item.product._id))
-            .map((item) => ({
-              ...item,
-              product: actualProductsMap.get(item.product._id)!,
-            })),
-        );
-
-        if (unavailableItems.length > 0) {
+        if (hasUnavailableItems) {
           setOrderError(
             "Деякі товари більше недоступні та були видалені з кошика. " +
               "Перевірте замовлення перед повторним підтвердженням.",
@@ -271,7 +240,6 @@ function App() {
             "Один або декілька товарів більше недоступні. " +
               "Поверніться до кошика та перевірте замовлення.",
           );
-          setCurrentPage("cart");
         }
 
         if (errorData?.message === "Pickup time must be in the future") {
