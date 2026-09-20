@@ -175,11 +175,68 @@ function App() {
     setSubmitting(true);
 
     try {
+      // Перевірка актуальності товарів перед оформленням замовлення
+      const productsResponse = await fetch("/api/products");
+
+      if (!productsResponse.ok) {
+        throw new Error(
+          "Не вдалося перевірити актуальність кошика. Спробуйте ще раз.",
+        );
+      }
+
+      const actualProducts: Product[] = await productsResponse.json();
+
+      // Оновлення меню відповідно до даних сервера
+      setProducts(actualProducts);
+
+      const actualProductsMap = new Map(
+        actualProducts.map((product) => [product._id, product]),
+      );
+
+      const unavailableItems = cart.filter(
+        (item) => !actualProductsMap.has(item.product._id),
+      );
+
+      const priceChanged = cart.some((item) => {
+        const actualProduct = actualProductsMap.get(item.product._id);
+
+        return actualProduct && actualProduct.price !== item.product.price;
+      });
+
+      // Оновлення цін і видалення недоступних товарів із кошика
+      if (unavailableItems.length > 0 || priceChanged) {
+        setCart(
+          cart
+            .filter((item) => actualProductsMap.has(item.product._id))
+            .map((item) => ({
+              ...item,
+              product: actualProductsMap.get(item.product._id)!,
+            })),
+        );
+
+        if (unavailableItems.length > 0) {
+          setOrderError(
+            "Деякі товари більше недоступні та були видалені з кошика. " +
+              "Перевірте замовлення перед повторним підтвердженням.",
+          );
+
+          // Повернення до кошика після видалення недоступних товарів
+          setCurrentPage("cart");
+        } else {
+          setOrderError(
+            "Ціни товарів змінилися. Перевірте оновлену суму " +
+              "та підтвердьте замовлення повторно.",
+          );
+        }
+
+        return;
+      }
       // Формування замовлення відповідно до API
       const orderData = {
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
         pickupTime: selectedDate.toISOString(),
+        expectedTotal: Math.round(totalPrice * 100) / 100,
         items: cart.map((item) => ({
           productId: item.product._id,
           quantity: item.quantity,
@@ -196,7 +253,34 @@ function App() {
       });
 
       if (!response.ok) {
-        throw new Error("Не вдалося оформити замовлення.");
+        const errorData = await response.json().catch(() => null);
+
+        if (
+          response.status === 409 &&
+          errorData?.message === "ORDER_PRICE_CHANGED"
+        ) {
+          throw new Error(
+            "Ціна замовлення змінилася під час оформлення. " +
+              "Натисніть підтвердження ще раз, щоб оновити суму.",
+          );
+        }
+        if (
+          errorData?.message === "Some products are unavailable or do not exist"
+        ) {
+          throw new Error(
+            "Один або декілька товарів більше недоступні. " +
+              "Поверніться до кошика та перевірте замовлення.",
+          );
+          setCurrentPage("cart");
+        }
+
+        if (errorData?.message === "Pickup time must be in the future") {
+          throw new Error("Оберіть майбутню дату та час отримання.");
+        }
+
+        throw new Error(
+          "Не вдалося оформити замовлення. Перевірте дані та спробуйте ще раз.",
+        );
       }
 
       const result = await response.json();
@@ -342,7 +426,11 @@ function App() {
             </button>
 
             <h1>Ваш кошик</h1>
-
+            {orderError && (
+              <p className="error" role="alert">
+                {orderError}
+              </p>
+            )}
             {cart.length === 0 ? (
               <div className="empty-cart">
                 <p>Ваш кошик поки порожній.</p>

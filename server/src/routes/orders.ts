@@ -9,7 +9,8 @@ const router = Router();
 
 router.post("/", async (req, res) => {
   try {
-    const { customerName, customerPhone, pickupTime, items } = req.body ?? {};
+    const { customerName, customerPhone, pickupTime, items, expectedTotal } =
+      req.body ?? {};
 
     // Перевірка даних клієнта
     if (
@@ -19,7 +20,10 @@ router.post("/", async (req, res) => {
       !customerPhone.trim() ||
       !Array.isArray(items) ||
       items.length === 0 ||
-      items.length > 50
+      items.length > 50 ||
+      typeof expectedTotal !== "number" ||
+      !Number.isFinite(expectedTotal) ||
+      expectedTotal < 0
     ) {
       return res.status(400).json({
         message: "Invalid order data",
@@ -102,7 +106,14 @@ router.post("/", async (req, res) => {
       0,
     );
 
-    // Збереження товару
+    // Перевірка узгодженої з покупцем вартості замовлення
+    if (Math.round(totalPrice * 100) !== Math.round(expectedTotal * 100)) {
+      return res.status(409).json({
+        message: "ORDER_PRICE_CHANGED",
+      });
+    }
+
+    // Збереження замовлення
     const order = await Order.create({
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
