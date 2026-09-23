@@ -2,7 +2,7 @@ import { Router } from "express";
 import { Product } from "../models/Product";
 import { requireAdmin } from "../middleware/requireAdmin";
 import { requireTrustedOrigin } from "../middleware/requireTrustedOrigin";
-import mongoose from "mongoose";
+import { validateProductCreate, validateProductUpdate, validateProductId } from "../middleware/validateProduct";
 
 const router = Router();
 
@@ -37,38 +37,10 @@ router.get("/admin", requireAdmin, async (_req, res) => {
 });
 
 // Створення нового товару адміністратором
-router.post("/", requireTrustedOrigin, requireAdmin, async (req, res) => {
+router.post("/", requireTrustedOrigin, requireAdmin, validateProductCreate, async (req, res) => {
   try {
     const { name, description, price, imageUrl, category, isAvailable } =
       req.body ?? {};
-
-    // Перевірка обов'язкових полів
-    if (
-      typeof name !== "string" ||
-      !name.trim() ||
-      typeof category !== "string" ||
-      !category.trim() ||
-      typeof price !== "number" ||
-      !Number.isFinite(price) ||
-      price < 0
-    ) {
-      res.status(400).json({
-        message: "Invalid product data",
-      });
-      return;
-    }
-
-    // Перевірка необов'язкових полів
-    if (
-      (description !== undefined && typeof description !== "string") ||
-      (imageUrl !== undefined && typeof imageUrl !== "string") ||
-      (isAvailable !== undefined && typeof isAvailable !== "boolean")
-    ) {
-      res.status(400).json({
-        message: "Invalid optional product fields",
-      });
-      return;
-    }
 
     // Створення товару в базі даних
     const product = await Product.create({
@@ -92,90 +64,13 @@ router.post("/", requireTrustedOrigin, requireAdmin, async (req, res) => {
 });
 
 // Редагування товару адміністратором
-router.patch("/:id", requireTrustedOrigin, requireAdmin, async (req, res) => {
+router.patch("/:id", requireTrustedOrigin, requireAdmin, validateProductId, validateProductUpdate, async (req, res) => {
   try {
     const { id } = req.params;
     const data = req.body;
 
-    // Перевірка ідентифікатора товару
-    if (typeof id !== "string" || !mongoose.isValidObjectId(id)) {
-      res.status(400).json({
-        message: "Invalid product ID",
-      });
-      return;
-    }
-
-    // Перевірка формату даних
-    if (!data || typeof data !== "object" || Array.isArray(data)) {
-      res.status(400).json({
-        message: "Invalid product data",
-      });
-      return;
-    }
-
-    // Перевірка дозволених полів
-    const allowedFields = [
-      "name",
-      "description",
-      "price",
-      "imageUrl",
-      "category",
-      "isAvailable",
-    ];
-
-    const fields = Object.keys(data);
-
-    if (
-      fields.length === 0 ||
-      fields.some((field) => !allowedFields.includes(field))
-    ) {
-      res.status(400).json({
-        message: "Invalid product fields",
-      });
-      return;
-    }
-
-    // Перевірка текстових полів
-    for (const field of ["name", "category"]) {
-      if (
-        field in data &&
-        (typeof data[field] !== "string" || !data[field].trim())
-      ) {
-        res.status(400).json({
-          message: `Invalid ${field}`,
-        });
-        return;
-      }
-    }
-
-    for (const field of ["description", "imageUrl"]) {
-      if (field in data && typeof data[field] !== "string") {
-        res.status(400).json({
-          message: `Invalid ${field}`,
-        });
-        return;
-      }
-    }
-
-    // Перевірка ціни та доступності
-    if (
-      "price" in data &&
-      (typeof data.price !== "number" ||
-        !Number.isFinite(data.price) ||
-        data.price < 0)
-    ) {
-      res.status(400).json({
-        message: "Invalid price",
-      });
-      return;
-    }
-
-    if ("isAvailable" in data && typeof data.isAvailable !== "boolean") {
-      res.status(400).json({
-        message: "Invalid availability value",
-      });
-      return;
-    }
+    // Дані та ідентифікатор вже перевірено middleware.
+    const allowedFields = ["name", "description", "price", "imageUrl", "category", "isAvailable"];
 
     // Формування оновлення лише з дозволених полів
     const updates: Record<string, unknown> = {};
@@ -217,17 +112,9 @@ router.patch("/:id", requireTrustedOrigin, requireAdmin, async (req, res) => {
 });
 
 // Видалення товару адміністратором
-router.delete("/:id", requireTrustedOrigin, requireAdmin, async (req, res) => {
+router.delete("/:id", requireTrustedOrigin, requireAdmin, validateProductId, async (req, res) => {
   try {
     const { id } = req.params;
-
-    // Перевірка ідентифікатора товару
-    if (typeof id !== "string" || !mongoose.isValidObjectId(id)) {
-      res.status(400).json({
-        message: "Invalid product ID",
-      });
-      return;
-    }
 
     // Пошук і видалення товару
     const product = await Product.findByIdAndDelete(id);
